@@ -10,6 +10,8 @@
   let items = [];
   let catalogVehicles = [];
   let fileHandles = new Map();
+  let soundOffKeys = null;
+  let selectedKeys = new Set();
   let customSounds = JSON.parse(localStorage.getItem('garageAudioCustomNames') || '[]');
   let audioDbPromise;
   let previewUrl = null;
@@ -167,15 +169,16 @@
   function render() {
     const search = $('#searchInput').value.trim().toLowerCase();
     const filter = $('#filterSelect').value;
-    const shown = items.filter(item => {
+    const visibleItems = soundOffKeys === null ? items : items.filter(item => soundOffKeys.has(item.key));
+    const shown = visibleItems.filter(item => {
       const text = `${item.model} ${item.path} ${item.audio}`.toLowerCase();
       return text.includes(search) && (filter === 'all' || (filter === 'missing' && !item.audio) || (filter === 'filled' && !!item.audio));
     });
-    rows.innerHTML = shown.map(item => `<tr data-key="${esc(item.key)}"><td><input class="row-check" type="checkbox" aria-label="Selecionar ${esc(item.model)}"></td><td><span class="model-name">${esc(item.model)}</span></td><td><div class="file-name" title="${esc(item.path)}">${esc(item.path)}</div></td><td><span class="audio-current ${item.audio ? '' : 'empty'}">${item.audio ? esc(item.audio) : 'Vazio'}</span></td><td><span class="status-pill ${item.audio ? '' : 'missing'}">${item.audio ? 'Preenchido' : 'Sem \u00e1udio'}</span></td></tr>`).join('');
-    $('#vehicleCount').textContent = String(items.length);
-    $('#tableSummary').textContent = `${shown.length} exibido(s) \u00b7 ${items.filter(item => !item.audio).length} sem \u00e1udio \u00b7 ${items.filter(item => item.audio).length} com \u00e1udio`;
+    rows.innerHTML = shown.map(item => `<tr data-key="${esc(item.key)}"><td><input class="row-check" type="checkbox" ${selectedKeys.has(item.key) ? 'checked' : ''} aria-label="Selecionar ${esc(item.model)}"></td><td><span class="model-name">${esc(item.model)}</span></td><td><div class="file-name" title="${esc(item.path)}">${esc(item.path)}</div></td><td><span class="audio-current ${item.audio ? '' : 'empty'}">${item.audio ? esc(item.audio) : 'Vazio'}</span></td><td><span class="status-pill ${item.audio ? '' : 'missing'}">${item.audio ? 'Preenchido' : 'Sem \u00e1udio'}</span></td></tr>`).join('');
+    $('#vehicleCount').textContent = String(visibleItems.length);
+    $('#tableSummary').textContent = `${shown.length} exibido(s) \u00b7 ${visibleItems.filter(item => !item.audio).length} sem \u00e1udio \u00b7 ${visibleItems.filter(item => item.audio).length} com \u00e1udio${soundOffKeys === null ? '' : ' \u00b7 sele\u00e7\u00e3o SOM-OFF'}`;
     $('#emptySearch').classList.toggle('hidden', shown.length > 0);
-    $('#selectAll').checked = shown.length > 0 && rows.querySelectorAll('.row-check:checked').length === shown.length;
+    $('#selectAll').checked = shown.length > 0 && shown.every(item => selectedKeys.has(item.key));
   }
 
   $('#scanRoot').addEventListener('click', async () => {
@@ -185,7 +188,9 @@
       rootHandle = await window.showDirectoryPicker({mode:'readwrite'});
       const result = await scanFolder(rootHandle);
       if (!result.items.length) throw new Error('N\u00e3o encontrei nenhum vehicles.meta com modelName na pasta selecionada ou em suas subpastas.');
-      items = result.items; fileHandles = result.handles;
+      items = result.items; fileHandles = result.handles; soundOffKeys = null; selectedKeys.clear();
+      $('#clearSoundOff').classList.add('hidden');
+      $('#soundOffStatus').textContent = 'Escolha a pasta SOM-OFF para comparar os nomes dos ve\u00edculos.';
       $('#selectedRoot').textContent = `${rootHandle.name} \u00b7 ${items.length} ve\u00edculo(s) encontrado(s)`;
       panel.classList.remove('hidden');
       $('#insertAudio').disabled = false;
@@ -197,12 +202,60 @@
     finally { button.disabled = false; }
   });
 
+  $('#scanSoundOff').addEventListener('click', async () => {
+    if (!rootHandle || !items.length) return notify('Escolha primeiro a pasta dos vehicles.meta.', true);
+    const button = $('#scanSoundOff'); button.disabled = true;
+    try {
+      const folder = await window.showDirectoryPicker({mode:'read'});
+      const names = new Set();
+      for await (const [name, entry] of folder.entries()) if (entry.kind === 'directory') names.add(name.trim().toLocaleLowerCase());
+      if (!names.size) throw new Error('A pasta SOM-OFF n\u00e3o cont\u00e9m subpastas com nomes de ve\u00edculos.');
+      const matchedNames = new Set();
+      soundOffKeys = new Set(items.filter(item => {
+        if (!item.audio) return false;
+        const folders = item.path.split('/').slice(0, -1);
+        const vehicleFolder = folders.at(-1)?.toLocaleLowerCase() === 'data' ? folders.at(-2) : folders.at(-1);
+        const candidates = [item.model, vehicleFolder].filter(Boolean).map(name => name.trim().toLocaleLowerCase());
+        const match = candidates.find(name => names.has(name));
+        if (match) matchedNames.add(match);
+        return !!match;
+      }).map(item => item.key));
+      selectedKeys = new Set(soundOffKeys);
+      $('#searchInput').value = '';
+      $('#filterSelect').value = 'all';
+      $('#applyAll').checked = false;
+      $('#clearSoundOff').classList.remove('hidden');
+      const unmatched = [...names].filter(name => !matchedNames.has(name));
+      $('#soundOffStatus').textContent = `${folder.name}: ${soundOffKeys.size} ve\u00edculo(s) selecionado(s). ${unmatched.length ? `Sem correspond\u00eancia: ${unmatched.slice(0, 10).join(', ')}${unmatched.length > 10 ? ` e mais ${unmatched.length - 10}` : ''}.` : 'Todos os nomes corresponderam.'}`;
+      render();
+      panel.scrollIntoView({behavior:'smooth', block:'start'});
+      notify(`${soundOffKeys.size} ve\u00edculo(s) SOM-OFF encontrados.`);
+    } catch (error) { if (error.name !== 'AbortError') notify(error.message, true); }
+    finally { button.disabled = false; }
+  });
+
+  $('#clearSoundOff').addEventListener('click', () => {
+    soundOffKeys = null; selectedKeys.clear();
+    $('#clearSoundOff').classList.add('hidden');
+    $('#soundOffStatus').textContent = 'Escolha a pasta SOM-OFF para comparar os nomes dos ve\u00edculos.';
+    render();
+  });
+
   loadVehicleCatalog().catch(error => notify(error.message, true));
   classSelect.addEventListener('change', populateAudios);
   audioSelect.addEventListener('change', () => { customAudio.classList.toggle('hidden', audioSelect.value !== '__custom'); updateVehiclePreview(); });
   $('#searchInput').addEventListener('input', render);
   $('#filterSelect').addEventListener('change', render);
-  $('#selectAll').addEventListener('change', event => rows.querySelectorAll('.row-check').forEach(box => { box.checked = event.target.checked; }));
+  $('#selectAll').addEventListener('change', event => rows.querySelectorAll('tr').forEach(row => {
+    row.querySelector('.row-check').checked = event.target.checked;
+    if (event.target.checked) selectedKeys.add(row.dataset.key); else selectedKeys.delete(row.dataset.key);
+  }));
+  rows.addEventListener('change', event => {
+    if (!event.target.matches('.row-check')) return;
+    const key = event.target.closest('tr').dataset.key;
+    if (event.target.checked) selectedKeys.add(key); else selectedKeys.delete(key);
+    $('#selectAll').checked = [...rows.querySelectorAll('.row-check')].every(box => box.checked);
+  });
 
   $('#insertAudio').addEventListener('click', async () => {
     if (!rootHandle || !items.length) return notify('Escolha primeiro a pasta com os ve\u00edculos.', true);
@@ -211,8 +264,7 @@
     const chosenCustom = selectedValue.startsWith('custom:') ? selectedValue.slice(7) : '';
     const audio = (chosenVehicle?.audio || chosenCustom || (selectedValue === '__custom' ? customAudio.value : selectedValue)).trim().toUpperCase();
     if (!validAudio(audio)) return notify('Escolha um \u00e1udio da lista ou digite um nome v\u00e1lido.', true);
-    const selected = [...rows.querySelectorAll('tr')].filter(row => row.querySelector('.row-check').checked).map(row => row.dataset.key);
-    const keys = $('#applyAll').checked ? items.map(item => item.key) : selected;
+    const keys = $('#applyAll').checked ? (soundOffKeys === null ? items.map(item => item.key) : [...soundOffKeys]) : [...selectedKeys];
     if (!keys.length) return notify('Marque os ve\u00edculos que receber\u00e3o o \u00e1udio.', true);
     const existing = items.filter(item => keys.includes(item.key) && item.audio);
     const replace = existing.length > 0 && window.confirm(`${existing.length} ve\u00edculo(s) j\u00e1 t\u00eam \u00e1udio (${[...new Set(existing.map(item => item.audio))].join(', ')}). OK substitui; Cancelar mant\u00e9m os atuais e preenche somente os vazios.`);
