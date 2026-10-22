@@ -1,14 +1,15 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
-    "api/index.php": {
+    "api/*.php": {
       "runtime": "vercel-php@0.9.0",
       "maxDuration": 60
     }
   },
   "routes": [
     { "src": "/", "dest": "/api/index.php" },
-    { "src": "/(index|backend|vehicle-model)\\.php", "dest": "/api/index.php" },
+    { "src": "/vehicle-model\\.php", "dest": "/api/vehicle-model.php" },
+    { "src": "/(index|backend)\\.php", "dest": "/api/index.php" },
     { "handle": "filesystem" },
     { "src": "/(.*)", "dest": "/api/index.php" }
   ]
