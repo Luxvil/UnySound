@@ -109,29 +109,8 @@ function discover_meta(string $root): array {
 function scan_vehicle_root(string $root): array {
     $resolved = realpath($root);
     if ($resolved === false || !is_dir($resolved)) throw new RuntimeException('A pasta indicada não existe ou não está acessível.');
-    $items = [];
-    foreach (new DirectoryIterator($resolved) as $vehicleDir) {
-        if ($vehicleDir->isDot() || !$vehicleDir->isDir()) continue;
-        foreach (new DirectoryIterator($vehicleDir->getPathname()) as $dataDir) {
-            if ($dataDir->isDot() || !$dataDir->isDir() || strcasecmp($dataDir->getFilename(), 'data') !== 0) continue;
-            foreach (new DirectoryIterator($dataDir->getPathname()) as $metaFile) {
-                if ($metaFile->isDot() || !$metaFile->isFile() || strcasecmp($metaFile->getFilename(), 'vehicles.meta') !== 0) continue;
-                $relative = $vehicleDir->getFilename() . '/data/' . $metaFile->getFilename();
-                $content = file_get_contents($metaFile->getPathname());
-                if ($content === false) continue;
-                preg_match_all('/<Item\b[^>]*>.*?<\/Item>/is', $content, $matches);
-                foreach ($matches[0] as $index => $block) {
-                    if (!preg_match('/<modelName\b[^>]*>(.*?)<\/modelName>/is', $block, $model)) continue;
-                    $name = trim(html_entity_decode(strip_tags($model[1]), ENT_QUOTES | ENT_XML1, 'UTF-8'));
-                    if ($name === '') continue;
-                    preg_match('/<audioNameHash\b[^>]*>(.*?)<\/audioNameHash>/is', $block, $audio);
-                    $value = isset($audio[1]) ? trim(html_entity_decode(strip_tags($audio[1]), ENT_QUOTES | ENT_XML1, 'UTF-8')) : '';
-                    $items[] = ['key' => $relative . '::' . $index, 'path' => $relative, 'index' => $index, 'model' => $name, 'audio' => $value, 'missing' => $value === ''];
-                }
-            }
-        }
-    }
-    if (!$items) throw new RuntimeException('Nenhuma pasta de veículo com data/vehicles.meta e modelName foi encontrada.');
+    $items = discover_meta($resolved);
+    if (!$items) throw new RuntimeException('Nenhum vehicles.meta com modelName foi encontrado na pasta selecionada ou em suas subpastas.');
     $_SESSION['vehicle_root'] = $resolved;
     $_SESSION['items'] = $items;
     $_SESSION['mappings'] = [];
@@ -154,9 +133,9 @@ function save_mappings_in_place(array $updates): array {
     }
     $changed = 0;
     foreach ($grouped as $relative => $mappings) {
-        $parts = explode('/', $relative);
-        if (count($parts) !== 3 || strcasecmp($parts[1], 'data') !== 0 || strcasecmp($parts[2], 'vehicles.meta') !== 0) throw new RuntimeException('Caminho de vehicles.meta inválido.');
-        $file = $root . DIRECTORY_SEPARATOR . $parts[0] . DIRECTORY_SEPARATOR . $parts[1] . DIRECTORY_SEPARATOR . $parts[2];
+        $relative = safe_path($relative);
+        if ($relative === null || strcasecmp(basename($relative), 'vehicles.meta') !== 0) throw new RuntimeException('Caminho de vehicles.meta inválido.');
+        $file = $root . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relative);
         $real = realpath($file);
         if ($real === false || !str_starts_with(strtolower($real), strtolower($root . DIRECTORY_SEPARATOR)) || !is_file($real)) throw new RuntimeException('O arquivo de origem não foi encontrado: ' . $relative);
         $original = file_get_contents($real);

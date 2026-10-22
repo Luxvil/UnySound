@@ -27,16 +27,17 @@
   async function scanFolder(root) {
     const found = [];
     const handles = new Map();
-    for await (const [vehicleName, vehicleDir] of root.entries()) {
-      if (vehicleDir.kind !== 'directory') continue;
-      let dataDir = null;
-      for await (const [name, entry] of vehicleDir.entries()) {
-        if (entry.kind === 'directory' && name.toLowerCase() === 'data') { dataDir = entry; break; }
-      }
-      if (!dataDir) continue;
-      for await (const [fileName, fileHandle] of dataDir.entries()) {
-        if (fileHandle.kind !== 'file' || fileName.toLowerCase() !== 'vehicles.meta') continue;
-        const path = `${vehicleName}/${dataDir.name}/${fileName}`;
+    const pending = [{directory:root, prefix:''}];
+    while (pending.length) {
+      const {directory, prefix} = pending.pop();
+      for await (const [name, entry] of directory.entries()) {
+        const path = prefix ? `${prefix}/${name}` : name;
+        if (entry.kind === 'directory') {
+          pending.push({directory:entry, prefix:path});
+          continue;
+        }
+        if (entry.kind !== 'file' || name.toLowerCase() !== 'vehicles.meta') continue;
+        const fileHandle = entry;
         const source = await (await fileHandle.getFile()).text();
         handles.set(path, fileHandle);
         const blocks = [...source.matchAll(/<Item\b[^>]*>[\s\S]*?<\/Item>/gi)];
@@ -183,7 +184,7 @@
     try {
       rootHandle = await window.showDirectoryPicker({mode:'readwrite'});
       const result = await scanFolder(rootHandle);
-      if (!result.items.length) throw new Error('N\u00e3o encontrei data/vehicles.meta com ve\u00edculos. Escolha a pasta raiz que cont\u00e9m as pastas dos ve\u00edculos.');
+      if (!result.items.length) throw new Error('N\u00e3o encontrei nenhum vehicles.meta com modelName na pasta selecionada ou em suas subpastas.');
       items = result.items; fileHandles = result.handles;
       $('#selectedRoot').textContent = `${rootHandle.name} \u00b7 ${items.length} ve\u00edculo(s) encontrado(s)`;
       panel.classList.remove('hidden');
