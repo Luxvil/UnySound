@@ -1,0 +1,6 @@
+﻿# Runtime data is user-specific and must not be published.
+storage/*
+!storage/.htaccess
+
+# Local Vercel metadata
+.vercel
