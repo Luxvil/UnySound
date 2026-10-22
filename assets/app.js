@@ -11,7 +11,9 @@
   let catalogVehicles = [];
   let fileHandles = new Map();
   let soundOffKeys = null;
+  let soundOffMatches = new Map();
   let selectedKeys = new Set();
+  let newAudioByKey = new Map();
   let customSounds = JSON.parse(localStorage.getItem('garageAudioCustomNames') || '[]');
   let audioDbPromise;
   let previewUrl = null;
@@ -163,6 +165,7 @@
     if (!response.ok) throw new Error('N\u00e3o foi poss\u00edvel carregar o cat\u00e1logo de ve\u00edculos.');
     const data = await response.json();
     catalogVehicles = data.vehicles || [];
+    $('#rowAudioOptions').innerHTML = [...new Set(catalogVehicles.map(vehicle => vehicle.audio).filter(Boolean))].map(audio => `<option value="${esc(audio)}"></option>`).join('');
     fillAudioCatalog();
   }
 
@@ -174,7 +177,7 @@
       const text = `${item.model} ${item.path} ${item.audio}`.toLowerCase();
       return text.includes(search) && (filter === 'all' || (filter === 'missing' && !item.audio) || (filter === 'filled' && !!item.audio));
     });
-    rows.innerHTML = shown.map(item => `<tr data-key="${esc(item.key)}"><td><input class="row-check" type="checkbox" ${selectedKeys.has(item.key) ? 'checked' : ''} aria-label="Selecionar ${esc(item.model)}"></td><td><span class="model-name">${esc(item.model)}</span></td><td><div class="file-name" title="${esc(item.path)}">${esc(item.path)}</div></td><td><span class="audio-current ${item.audio ? '' : 'empty'}">${item.audio ? esc(item.audio) : 'Vazio'}</span></td><td><span class="status-pill ${item.audio ? '' : 'missing'}">${item.audio ? 'Preenchido' : 'Sem \u00e1udio'}</span></td></tr>`).join('');
+    rows.innerHTML = shown.map(item => `<tr data-key="${esc(item.key)}"><td><input class="row-check" type="checkbox" ${selectedKeys.has(item.key) ? 'checked' : ''} aria-label="Selecionar ${esc(item.model)}"></td><td>${esc(soundOffMatches.get(item.key) || '—')}</td><td><span class="model-name">${esc(item.model)}</span></td><td><div class="file-name" title="${esc(item.path)}">${esc(item.path)}</div></td><td><span class="audio-current ${item.audio ? '' : 'empty'}">${item.audio ? esc(item.audio) : 'Vazio'}</span></td><td><input class="row-audio" type="text" list="rowAudioOptions" maxlength="64" value="${esc(newAudioByKey.get(item.key) || '')}" placeholder="Nome do \u00e1udio" aria-label="Novo \u00e1udio para ${esc(item.model)}"></td><td><span class="status-pill ${item.audio ? '' : 'missing'}">${item.audio ? 'Preenchido' : 'Sem \u00e1udio'}</span></td></tr>`).join('');
     $('#vehicleCount').textContent = String(visibleItems.length);
     $('#tableSummary').textContent = `${shown.length} exibido(s) \u00b7 ${visibleItems.filter(item => !item.audio).length} sem \u00e1udio \u00b7 ${visibleItems.filter(item => item.audio).length} com \u00e1udio${soundOffKeys === null ? '' : ' \u00b7 sele\u00e7\u00e3o SOM-OFF'}`;
     $('#emptySearch').classList.toggle('hidden', shown.length > 0);
@@ -188,7 +191,7 @@
       rootHandle = await window.showDirectoryPicker({mode:'readwrite'});
       const result = await scanFolder(rootHandle);
       if (!result.items.length) throw new Error('N\u00e3o encontrei nenhum vehicles.meta com modelName na pasta selecionada ou em suas subpastas.');
-      items = result.items; fileHandles = result.handles; soundOffKeys = null; selectedKeys.clear();
+      items = result.items; fileHandles = result.handles; soundOffKeys = null; soundOffMatches.clear(); selectedKeys.clear(); newAudioByKey.clear();
       $('#clearSoundOff').classList.add('hidden');
       $('#soundOffStatus').textContent = 'Escolha a pasta SOM-OFF para comparar os nomes dos ve\u00edculos.';
       $('#selectedRoot').textContent = `${rootHandle.name} \u00b7 ${items.length} ve\u00edculo(s) encontrado(s)`;
@@ -211,13 +214,14 @@
       for await (const [name, entry] of folder.entries()) if (entry.kind === 'directory') names.add(name.trim().toLocaleLowerCase());
       if (!names.size) throw new Error('A pasta SOM-OFF n\u00e3o cont\u00e9m subpastas com nomes de ve\u00edculos.');
       const matchedNames = new Set();
+      soundOffMatches = new Map();
       soundOffKeys = new Set(items.filter(item => {
         if (!item.audio) return false;
         const folders = item.path.split('/').slice(0, -1);
         const vehicleFolder = folders.at(-1)?.toLocaleLowerCase() === 'data' ? folders.at(-2) : folders.at(-1);
         const candidates = [item.model, vehicleFolder].filter(Boolean).map(name => name.trim().toLocaleLowerCase());
         const match = candidates.find(name => names.has(name));
-        if (match) matchedNames.add(match);
+        if (match) { matchedNames.add(match); soundOffMatches.set(item.key, match); }
         return !!match;
       }).map(item => item.key));
       selectedKeys = new Set(soundOffKeys);
@@ -235,7 +239,7 @@
   });
 
   $('#clearSoundOff').addEventListener('click', () => {
-    soundOffKeys = null; selectedKeys.clear();
+    soundOffKeys = null; soundOffMatches.clear(); selectedKeys.clear(); newAudioByKey.clear();
     $('#clearSoundOff').classList.add('hidden');
     $('#soundOffStatus').textContent = 'Escolha a pasta SOM-OFF para comparar os nomes dos ve\u00edculos.';
     render();
@@ -256,6 +260,12 @@
     if (event.target.checked) selectedKeys.add(key); else selectedKeys.delete(key);
     $('#selectAll').checked = [...rows.querySelectorAll('.row-check')].every(box => box.checked);
   });
+  rows.addEventListener('input', event => {
+    if (!event.target.matches('.row-audio')) return;
+    const key = event.target.closest('tr').dataset.key;
+    if (event.target.value.trim()) newAudioByKey.set(key, event.target.value);
+    else newAudioByKey.delete(key);
+  });
 
   $('#insertAudio').addEventListener('click', async () => {
     if (!rootHandle || !items.length) return notify('Escolha primeiro a pasta com os ve\u00edculos.', true);
@@ -263,13 +273,14 @@
     const chosenVehicle = selectedValue.startsWith('vehicle:') ? catalogVehicles[Number(selectedValue.slice(8))] : null;
     const chosenCustom = selectedValue.startsWith('custom:') ? selectedValue.slice(7) : '';
     const audio = (chosenVehicle?.audio || chosenCustom || (selectedValue === '__custom' ? customAudio.value : selectedValue)).trim().toUpperCase();
-    if (!validAudio(audio)) return notify('Escolha um \u00e1udio da lista ou digite um nome v\u00e1lido.', true);
     const keys = $('#applyAll').checked ? (soundOffKeys === null ? items.map(item => item.key) : [...soundOffKeys]) : [...selectedKeys];
     if (!keys.length) return notify('Marque os ve\u00edculos que receber\u00e3o o \u00e1udio.', true);
+    const requested = Object.fromEntries(keys.map(key => [key, (newAudioByKey.get(key) || audio).trim().toUpperCase()]));
+    if (Object.values(requested).some(value => !validAudio(value))) return notify('Escolha um \u00e1udio geral ou informe um novo \u00e1udio v\u00e1lido para cada ve\u00edculo selecionado.', true);
     const existing = items.filter(item => keys.includes(item.key) && item.audio);
     const replace = existing.length > 0 && window.confirm(`${existing.length} ve\u00edculo(s) j\u00e1 t\u00eam \u00e1udio (${[...new Set(existing.map(item => item.audio))].join(', ')}). OK substitui; Cancelar mant\u00e9m os atuais e preenche somente os vazios.`);
     const updates = {};
-    keys.forEach(key => { const item = items.find(entry => entry.key === key); if (!item.audio || replace) updates[key] = audio; });
+    keys.forEach(key => { const item = items.find(entry => entry.key === key); if (!item.audio || replace) updates[key] = requested[key]; });
     if (!Object.keys(updates).length) return notify('Nenhum campo vazio para preencher. \u00c1udios atuais mantidos.');
     const button = $('#insertAudio'); button.disabled = true;
     try {
@@ -290,7 +301,8 @@
         const writable = await handle.createWritable();
         try { await writable.write(output); await writable.close(); } catch (error) { await writable.abort(); throw error; }
       }
-      items = items.map(item => Object.hasOwn(updates,item.key) ? {...item,audio} : item);
+      items = items.map(item => Object.hasOwn(updates,item.key) ? {...item,audio:updates[item.key]} : item);
+      Object.keys(updates).forEach(key => newAudioByKey.delete(key));
       populateAudios(); render();
       const kept = keys.length - Object.keys(updates).length;
       $('#insertHint').textContent = `${Object.keys(updates).length} ve\u00edculo(s) salvo(s) diretamente em ${rootHandle.name}.${kept ? ` ${kept} mantido(s).` : ''}`;
