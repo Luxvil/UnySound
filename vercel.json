@@ -6,10 +6,10 @@
       "maxDuration": 60
     }
   },
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/api/index.php"
-    }
+  "routes": [
+    { "src": "/", "dest": "/api/index.php" },
+    { "src": "/(index|backend|vehicle-model)\\.php", "dest": "/api/index.php" },
+    { "handle": "filesystem" },
+    { "src": "/(.*)", "dest": "/api/index.php" }
   ]
 }
