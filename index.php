@@ -2,8 +2,10 @@
 declare(strict_types=1);
 session_start();
 const MAX_FILES = 5000;
-const MAX_UPLOAD_BYTES = 314572800;
-const APP_DIR = __DIR__ . DIRECTORY_SEPARATOR . 'storage';
+define('MAX_UPLOAD_BYTES', getenv('VERCEL') === '1' ? 4194304 : 314572800);
+define('APP_DIR', getenv('VERCEL') === '1'
+    ? sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'uny-sound-storage'
+    : __DIR__ . DIRECTORY_SEPARATOR . 'storage');
 if (!is_dir(APP_DIR)) { mkdir(APP_DIR, 0775, true); file_put_contents(APP_DIR . DIRECTORY_SEPARATOR . '.htaccess', "Require all denied\nDeny from all\n"); }
 require __DIR__ . '/backend.php';
 ?><!doctype html>

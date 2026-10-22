@@ -30,3 +30,9 @@ A biblioteca embutida é uma lista inicial de nomes comuns e associações útei
 
 O resource enviado fica temporariamente em `storage/<sessão>`, protegido contra acesso HTTP direto pelo `.htaccess`. O botão **Limpar projeto** remove os arquivos da sessão atual. A cópia de trabalho é usada para montar o ZIP e não altera os arquivos que estavam no computador antes do envio.
 
+
+## Deploy na Vercel
+
+O projeto inclui `vercel.json` e uma funcao PHP com o runtime comunitario `vercel-php`. Importe `Luxvil/UnySound` na Vercel, mantenha a pasta raiz do projeto e use o preset **Other**, sem comando de build. A Vercel fornece HTTPS, necessario para selecionar uma pasta local no Chrome ou Edge. Nesse fluxo, a leitura e a gravacao dos arquivos `vehicles.meta` acontecem diretamente no navegador.
+
+O ambiente Vercel grava temporarios em `/tmp`, que nao e armazenamento persistente. Os endpoints PHP de upload/exportacao ficam limitados a 4 MB por projeto; ZIPs grandes devem ser processados pelo seletor de pasta no navegador. Para XAMPP, o limite local continua em 300 MB.
