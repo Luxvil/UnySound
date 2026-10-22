@@ -9,7 +9,7 @@ define('APP_DIR', getenv('VERCEL') === '1'
 if (!is_dir(APP_DIR)) { mkdir(APP_DIR, 0775, true); file_put_contents(APP_DIR . DIRECTORY_SEPARATOR . '.htaccess', "Require all denied\nDeny from all\n"); }
 require __DIR__ . '/backend.php';
 ?><!doctype html>
-<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>UnySound | FiveM</title><link rel="stylesheet" href="assets/style.css?v=17"></head><body>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>UnySound | FiveM</title><link rel="icon" type="image/png" href="assets/favicon.png?v=1"><link rel="stylesheet" href="assets/style.css?v=17"></head><body>
 <div class="app-shell"><aside class="sidebar">
 <a class="brand" href="#workspace" aria-label="UnySound — início"><img class="brand-logo" src="assets/unysound-logo.png" alt="UnySound" width="2089" height="753"></a>
 <div class="side-label">WORKSPACE</div><a class="nav-item active" href="#workspace"><span>&#9638;</span> Painel de &aacute;udio</a><a class="nav-item" href="#vehicleLibrary"><span>&#128663;</span> Cat&aacute;logo 3D</a>
