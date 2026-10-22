@@ -9,9 +9,9 @@ define('APP_DIR', getenv('VERCEL') === '1'
 if (!is_dir(APP_DIR)) { mkdir(APP_DIR, 0775, true); file_put_contents(APP_DIR . DIRECTORY_SEPARATOR . '.htaccess', "Require all denied\nDeny from all\n"); }
 require __DIR__ . '/backend.php';
 ?><!doctype html>
-<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Garage Audio | FiveM</title><link rel="stylesheet" href="assets/style.css?v=16"></head><body>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>UnySound | FiveM</title><link rel="stylesheet" href="assets/style.css?v=17"></head><body>
 <div class="app-shell"><aside class="sidebar">
-<a class="brand" href="#"><span class="brand-mark">G</span><span>GARAGE<span class="brand-muted">AUDIO</span><small>FIVEM WORKSHOP</small></span></a>
+<a class="brand" href="#workspace" aria-label="UnySound — início"><img class="brand-logo" src="assets/unysound-logo.png" alt="UnySound" width="2089" height="753"></a>
 <div class="side-label">WORKSPACE</div><a class="nav-item active" href="#workspace"><span>&#9638;</span> Painel de &aacute;udio</a><a class="nav-item" href="#vehicleLibrary"><span>&#128663;</span> Cat&aacute;logo 3D</a>
 <div class="side-bottom"><div class="status-dot"></div><div><b>Modo local</b><small>As altera&ccedil;&otilde;es s&atilde;o gravadas na pasta selecionada</small></div></div></aside>
 <main id="workspace">
@@ -30,6 +30,6 @@ require __DIR__ . '/backend.php';
 <section id="workspacePanel" class="workspace-panel hidden"><div class="panel-heading"><div><div class="eyebrow">PASTA SELECIONADA</div><h2>Ve&iacute;culos encontrados <span id="vehicleCount" class="count">0</span></h2></div></div>
 <div class="toolbar"><label class="search-box">&#9906; <input id="searchInput" type="search" placeholder="Buscar ve&iacute;culo ou arquivo..."></label><select id="filterSelect"><option value="all">Todos os ve&iacute;culos</option><option value="missing">Sem &aacute;udio</option><option value="filled">Com &aacute;udio</option></select></div>
 <div class="table-wrap"><table><thead><tr><th><input id="selectAll" type="checkbox" aria-label="Selecionar todos"></th><th>VE&Iacute;CULO / MODEL NAME</th><th>ARQUIVO</th><th>&Aacute;UDIO ATUAL</th><th>STATUS</th></tr></thead><tbody id="vehicleRows"></tbody></table><div id="emptySearch" class="empty-state hidden">Nenhum ve&iacute;culo corresponde &agrave; busca.</div></div><div class="table-footer"><span id="tableSummary">Escolha a pasta raiz para come&ccedil;ar</span><span>As altera&ccedil;&otilde;es s&atilde;o salvas nos arquivos selecionados.</span></div></section>
-<footer>Garage Audio &middot; Ferramenta local para FiveM <span class="footer-right">C&oacute;pia original preservada no projeto tempor&aacute;rio</span></footer></main></div>
+<footer>UnySound &middot; Ferramenta local para FiveM <span class="footer-right">C&oacute;pia original preservada no projeto tempor&aacute;rio</span></footer></main></div>
 <div id="toast" class="toast"></div><script>window.APP_DATA = {};</script><script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.169.0/build/three.module.min.js","three/addons/":"https://unpkg.com/three@0.169.0/examples/jsm/"}}</script><script src="assets/app.js?v=13" defer></script><script type="module" src="assets/vehicle-browser.js?v=3"></script></body></html>
 
